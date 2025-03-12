@@ -10,8 +10,7 @@ pub async fn connect_to_mongodb() -> Result<Database, mongodb::error::Error> {
     let db_name = env::var("MONGO_DB").expect("MONGO_DB_NAME not found.");
 
     let client = Client::with_uri_str(&uri)
-        .await
-        .expect("Error connecting to the database.");
+        .await?;
 
-    client.database(&db_name)
+    Ok(client.database(&db_name))
 }
