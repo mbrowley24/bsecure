@@ -1,3 +1,6 @@
+
+use crate::json_schemas;
+
 use actix_web::{
     get,
     HttpResponse,
@@ -7,20 +10,24 @@ use actix_web::{
     Scope,
     web,
 };
-
+use serde_json::json;
 
 #[post("/login")]
-async fn login() -> impl Responder {
+pub async fn login() -> impl Responder {
+
+    let data = json_schemas::user::Test::new(200, String::from("this is a test1"));
+
+    HttpResponse::Ok().json(data)
 
 }
 
 #[post("/logout")]
 async fn logout() -> impl Responder {
-
+    HttpResponse::Ok().body("Logout")
 }
 
 
-pub fn user_routes() -> Scope {
-    web::scope("/api/v1/login")
+pub fn configure() -> Scope {
+    web::scope("/api/v1")
         .service(login)
 }
