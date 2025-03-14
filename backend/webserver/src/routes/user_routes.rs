@@ -10,7 +10,6 @@ use actix_web::{
     Scope,
     web,
 };
-use serde_json::json;
 
 #[post("/login")]
 pub async fn login() -> impl Responder {
