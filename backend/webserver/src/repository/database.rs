@@ -16,13 +16,14 @@ pub async fn connect_to_mongodb() -> Result<Client, mongodb::error::Error> {
     Ok(client)
 }
 
-pub async fn connect_to_postgres() -> Result<Pool<Postgres>, Error>{
+pub async fn connect_to_postgres() -> Result<Pool<Postgres>, sqlx::Error>{
     dotenv().ok();
 
     let db_uri = env::var("DATABASE_URL").expect("DATABASE_URL not found.");
 
     let db_pool = Pool::<Postgres>::connect(&db_uri)
         .await?;
+
 
     Ok(db_pool)
 }
