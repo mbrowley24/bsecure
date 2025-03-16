@@ -1,12 +1,13 @@
 use mongodb::{Client as MongoClient};
-use elasticsearch::{Elasticsearch, };
+use sqlx::{Pool, Postgres};
 pub struct State {
     mongo_client : MongoClient,
-    es_client    : Elasticsearch,
+    pg_client     : Pool<Postgres>,
+
 }
 
 impl State {
-    pub fn new(mongo_client: MongoClient, es_client: Elasticsearch) -> Self {
-        State { mongo_client, es_client }
+    pub fn new(mongo_client: MongoClient, pg_client: Pool<Postgres>) -> Self {
+        Self {mongo_client, pg_client}
     }
 }

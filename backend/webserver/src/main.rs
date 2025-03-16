@@ -1,7 +1,7 @@
 
 mod repository{
     pub mod database;
-    pub mod elastic_search;
+
 }
 
 mod json_schemas;
@@ -13,7 +13,7 @@ mod routes{
 
 use std::sync::Arc;
 use actix_web::{web, App, HttpServer};
-use crate::repository::{database, elastic_search};
+use crate::repository::database;
 use crate::routes::user_routes;
 
 #[actix_web::main]
@@ -22,12 +22,14 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("MongoDB connection failed");
 
-    let elastic_search  = elastic_search::es_connection()
-        .expect("elastic search connection failed");
+    let postgres_database = database::connect_to_postgres()
+        .await
+        .expect("Postgres connection failed");
+
 
     println!("Database connections established");
 
-    let state = app_state::state::State::new(mongo_database, elastic_search);
+    let state = app_state::state::State::new(mongo_database, postgres_database);
 
     let db_arc = Arc::new(state);
 

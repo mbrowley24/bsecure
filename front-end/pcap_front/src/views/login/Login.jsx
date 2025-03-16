@@ -1,9 +1,8 @@
 import {useState} from "react";
 import {useNavigate} from "react-router-dom";
 import useHttp from "../../hooks/useHttp";
-import Input from "../../components/form/Input.js";
-import Button from "../../components/form/Button.js";
-import '../../css/login.css'
+import Input from "../../components/form/Input.jsx";
+import Button from "../../components/form/Button.jsx";
 
 function FormLogin(){
     const navigate = useNavigate();
@@ -68,8 +67,8 @@ function FormLogin(){
                     </div>
                     <div className="submit">
                         <Button
-                            className="button"
-                            label="Login"
+                            className = "button"
+                            text      = "Login"
                         />
                     </div>
                 </form>
