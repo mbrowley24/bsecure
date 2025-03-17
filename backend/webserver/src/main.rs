@@ -18,24 +18,27 @@ use crate::routes::user_routes;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let mongo_database = database::connect_to_mongodb()
-        .await
-        .expect("MongoDB connection failed");
+
 
     let postgres_database = database::connect_to_postgres()
         .await
         .expect("Postgres connection failed");
 
+    let http_client = database::http_client()
+        .await
+        .expect("HTTP client failed");
 
     println!("Database connections established");
 
-    let state = app_state::state::State::new(mongo_database, postgres_database);
-
-    let db_arc = Arc::new(state);
+    let state = Arc::new(
+        app_state::state::State::new(
+            http_client, postgres_database
+        )
+    );
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(db_arc.clone()))
+            .app_data(web::Data::new(state.clone()))
             .service(user_routes::configure())
 
 

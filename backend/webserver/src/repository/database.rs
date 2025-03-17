@@ -1,20 +1,10 @@
-use mongodb::{Client, Database};
+use reqwest::{Client, Error as R_Error};
 use sqlx::{Pool, Postgres, Error};
 use std::env;
 use dotenv::dotenv;
 
 
 
-pub async fn connect_to_mongodb() -> Result<Client, mongodb::error::Error> {
-    dotenv().ok();
-
-    let uri = env::var("MONGO_URI").expect("MONGO_URI not found.");
-
-    let client = Client::with_uri_str(&uri)
-        .await?;
-
-    Ok(client)
-}
 
 pub async fn connect_to_postgres() -> Result<Pool<Postgres>, sqlx::Error>{
     dotenv().ok();
@@ -24,6 +14,17 @@ pub async fn connect_to_postgres() -> Result<Pool<Postgres>, sqlx::Error>{
     let db_pool = Pool::<Postgres>::connect(&db_uri)
         .await?;
 
-
     Ok(db_pool)
+}
+
+
+pub async fn http_client() -> Result<Client, R_Error> {
+
+    let client = Client::builder()
+        .pool_max_idle_per_host(10)
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .expect("Client building request failed");
+
+    Ok(client)
 }
