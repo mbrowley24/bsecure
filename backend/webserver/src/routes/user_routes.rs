@@ -1,5 +1,11 @@
 
 use crate::json_schemas;
+use crate::models::{
+    user::{
+        register::Register,
+        user::User
+    }
+};
 
 use actix_web::{
     get,
@@ -11,8 +17,9 @@ use actix_web::{
     web,
 };
 
+
 #[post("/login")]
-pub async fn login() -> impl Responder {
+async fn login() -> impl Responder {
 
     let data = json_schemas::user::Test::new(200, String::from("this is a test1"));
 
@@ -26,7 +33,15 @@ async fn logout() -> impl Responder {
 }
 
 
+#[post("/register")]
+async fn register(new_user: web::Json<Register>) -> impl Responder {
+
+
+    HttpResponse::Ok().body("")
+}
+
 pub fn configure() -> Scope {
     web::scope("/api/v1")
         .service(login)
+        .service(logout)
 }

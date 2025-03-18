@@ -7,14 +7,16 @@ mod repository{
 mod json_schemas;
 mod app_state;
 
-mod routes{
-    pub mod user_routes;
-}
+
+mod routes;
+mod router;
+
+mod models;
 
 use std::sync::Arc;
 use actix_web::{web, App, HttpServer};
 use crate::repository::database;
-use crate::routes::user_routes;
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -39,7 +41,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
-            .service(user_routes::configure())
+            .service(router::configure())
 
 
     })
