@@ -1,6 +1,7 @@
 use actix_web::web::Data;
-use bcrypt::{hash, verify, DEFAULT_COST};
+
 use models::user::{User, Register};
+
 use sqlx::{PgPool, FromRow};
 use uuid::Uuid;
 
@@ -9,12 +10,14 @@ pub fn get_user_collection(db: Data<Arc<Database>> ) -> Collection<User::User> {
 }
 
 
+
+
 pub fn create_new_user(pool : &PgPool, new_user :Register) -> Result<(), sqlx::Error> {
 
+    //Generate Uuid
     let uuid = generate_uuid(pool);
 
-    let user = sqlx::query_as::<_, User>();
-
+    //Generate hash password using bcrypt and plain text password
     let password_hash = get_password_hash(new_user.password.clone())?;
 
     sqlx::query!(
@@ -35,13 +38,7 @@ pub fn create_new_user(pool : &PgPool, new_user :Register) -> Result<(), sqlx::E
 }
 
 
-//generate hashed password
-fn generate_hashed_password(pool: &PgPool, plain_password : String) -> String {
 
-    let hashed_password = hash(plain_password, DEFAULT_COST).expect("hashing password failed");
-
-    return hashed_password;
-}
 
 //generate uuid for users
 async fn generate_uuid(pool: &PgPool) -> Uuid {

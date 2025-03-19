@@ -9,7 +9,9 @@ bcrypt        = "0.17.0"
 chrono        = { version = "0.4.5", features = ["serde"] }
 reqwest       = { version = "0.11", features = ["json"] }
 uuid          = { version = "1", features = ["v4", "serde"] }
-serde         = {version = "1.0.219", features = ["derive"]}
+serde         = { version = "1.0.219", features = ["derive"]}
 tokio         = {version = "1.44.0", features = ["full"]}
-sqlx          = {version = "0.8.3", features = ["postgres", "runtime-tokio-native-tls"] }
+regex         = "1.11.1"
+sqlx          = { version = "0.8.3", features = ["postgres", "runtime-tokio-native-tls"] }
 dotenv        = "0.15.0"
+log = "0.4.26"

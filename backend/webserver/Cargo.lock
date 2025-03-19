@@ -2612,6 +2612,8 @@ dependencies = [
  "bcrypt",
  "chrono",
  "dotenv",
+ "log",
+ "regex",
  "reqwest",
  "serde",
  "sqlx",
