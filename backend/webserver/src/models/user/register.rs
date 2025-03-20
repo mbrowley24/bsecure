@@ -1,5 +1,8 @@
-use bcrypt::{hash, verify, DEFAULT_COST};
-use std::collections::{HashMap, HashSet};
+use bcrypt::{hash, DEFAULT_COST};
+use std::collections::{HashMap};
+use crate::models::defaults::{
+    default_false
+};
 use regex::Regex;
 use serde::{
     Serialize,
@@ -13,12 +16,14 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Register {
 
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
-    pub id                   : Option<i32>,
+
+    #[serde(rename = "public_id", skip_serializing_if = "Option::is_none")]
     pub public_id            : Option<Uuid>,
     pub username             : String,
     pub email                : String,
     pub email_confirmed      : String,
+
+    #[serde(default = "default_false")]
     pub email_verified       : bool,
     pub firstname            : String,
     pub lastname             : String,
@@ -27,18 +32,27 @@ pub struct Register {
     pub phone_number         : String,
     pub phone_number_confirm : String,
 
-
-
 }
 
 impl Register {
 
 
     //User field validations
-
     fn clean_phone_numbers(&mut self) {
 
         self.phone_number.retain(|c| c.is_digit(10));
+    }
+
+    //email is not verified
+    fn email_unverified(&mut self) {
+
+        self.email_verified = false;
+    }
+
+    //email_verification set email verification
+    fn email_verified(&mut self){
+
+        self.email_verified = true;
     }
 
     //validate email of users
@@ -78,11 +92,10 @@ impl Register {
     }
 
     //generate hashed password
-    fn generate_hashed_password(self) -> String {
+    pub fn generate_hashed_password(&self) -> Result<String, bcrypt::BcryptError> {
 
-        let hashed_password = hash(self.password, DEFAULT_COST).expect("hashing password failed");
+        hash(&self.password, DEFAULT_COST)
 
-        return hashed_password;
     }
 
     fn validate(self) -> HashMap<String, String>  {
@@ -96,13 +109,18 @@ impl Register {
 
         }else if self.username.len() < 5 {
 
-            errors.insert("username".to_string(), "invalid email".to_string());
+            errors.insert("username".to_string(), "username too short".to_string());
 
         }else if self.username.len() > 25 {
 
-            errors.insert("username".to_string(), "invalid password".to_string());
+            errors.insert("username".to_string(), "username too long".to_string());
 
-        }else if !self.is_valid_first_name(){
+        }else if self.username.trim().is_empty() {
+
+            errors.insert("username".to_string(), "required".to_string());
+        }
+
+        if !self.is_valid_first_name(){
 
             errors.insert("first_name_chars".to_string(), "first_name is not valid".to_string());
 
@@ -112,17 +130,47 @@ impl Register {
 
         } else if !self.firstname.len() < 2 {
 
-            errors.insert("first_name_length".to_string(), "first_name is not valid".to_string());
+            errors.insert("first_name_length".to_string(), "first_name to short".to_string());
 
-        } else if !self.is_valid_phone_number() {
+        }else if self.firstname.trim().is_empty() {
+            errors.insert("first_name".to_string(), "required".to_string());
+        }
+
+        if !self.lastname.trim().is_empty() {
+
+            errors.insert("last_name".to_string(), "required".to_string());
+
+        }else if self.lastname.len() < 10 {
+
+            errors.insert("last_name_length".to_string(), "last name is too short".to_string());
+
+        }else if self.lastname.len() > 50 {
+
+            errors.insert("last_name_length".to_string(), "last name is too long".to_string());
+        }
+
+        if !self.is_valid_phone_number() {
 
             errors.insert("phone_number".to_string(), "phone_number is not valid".to_string());
 
-        } else if !self.is_valid_email(){
+        }else if self.phone_number != self.phone_number_confirm {
+
+            errors.insert("phone_number".to_string(), "does not match".to_string());
+
+        }
+
+        if !self.is_valid_email(){
 
             errors.insert("email".to_string(), "email is not valid".to_string());
 
-        } else if self.password != self.password_confirm {
+        }else if self.email != self.email_confirmed {
+
+            errors.insert("email".to_string(), "does not match".to_string());
+
+
+        }
+
+        if self.password != self.password_confirm {
 
             errors.insert("password".to_string(), "does not match".to_string());
 
@@ -134,15 +182,9 @@ impl Register {
 
             errors.insert("password_length".to_string(), "password is too long".to_string());
 
-        }else if self.email != self.email_confirmed {
+        }else if self.password.trim().is_empty() {
 
-            errors.insert("email".to_string(), "does not match".to_string());
-
-
-        }else if self.phone_number != self.phone_number_confirm {
-
-            errors.insert("phone_number".to_string(), "does not match".to_string());
-
+            errors.insert("password".to_string(), "required".to_string());
         }
 
         return errors;

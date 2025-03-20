@@ -1,19 +1,19 @@
 use bcrypt::{hash, DEFAULT_COST};
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use uuid::Uuid;
 use serde::{
     Serialize,
     Deserialize,
 };
-
-
+use crate::models::user::register::Register;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User{
 
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
     pub id              : Option<u64>,
-    pub public_id       : Uuid,
+    #[serde(rename = "public_id", skip_serializing_if = "Option::is_none")]
+    pub public_id       : Option<Uuid>,
     pub username        : String,
     pub email           : String,
     pub firstname       : String,
@@ -21,4 +21,9 @@ pub struct User{
     pub hashed_password : String,
     pub created_at      : NaiveDate,
     pub updated_at      : NaiveDate,
+}
+
+
+impl User {
+
 }

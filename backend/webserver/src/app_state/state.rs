@@ -1,8 +1,8 @@
 use reqwest::Client;
 use sqlx::{Pool, Postgres};
 pub struct State {
-    quick_wit : Client,
-    pg_client  : Pool<Postgres>,
+    pub quick_wit : Client,
+    pub pg_client  : Pool<Postgres>,
 
 }
 

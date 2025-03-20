@@ -12,6 +12,7 @@ mod routes;
 mod router;
 
 mod models;
+mod services;
 
 use std::sync::Arc;
 use actix_web::{web, App, HttpServer};
