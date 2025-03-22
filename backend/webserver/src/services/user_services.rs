@@ -1,42 +1,74 @@
-use actix_web::web::Data;
 
 use bcrypt::{hash, DEFAULT_COST};
+use chrono::{
+    Local,
+};
 use crate::models::user::{
     register::Register
 };
 
-use sqlx::{PgPool, FromRow};
+use sqlx::{PgPool, Row};
+
 use uuid::Uuid;
+use crate::models::user::user::User;
 
-
-
-
-
-
-pub async fn create_new_user(db_pool : &PgPool, new_user : Register) -> Result<(), sqlx::Error> {
+//creates a new user generates Uuid and return it upon a successful save
+pub async fn create_new_user(db_pool : &PgPool, new_user : Register) -> Result<Uuid, sqlx::Error> {
 
     //Generate Uuid
     let public_id : Uuid = generate_uuid(db_pool).await;
     println!("{}", public_id);
     //Generate hash password using bcrypt and plain text password
     let password_hash : String = hash(new_user.password, DEFAULT_COST).unwrap();
+    let current_time = Local::now().naive_local();
 
     sqlx::query(
-        "INSERT INTO besecure_proj.users (public_id, first_name, last_name, password, phone, email,\
-        email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7)")
+        "INSERT INTO besecure_proj.users (public_id, username ,first_name, last_name, password,
+            phone, email,email_verified, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")
     .bind(public_id)
+    .bind(&new_user.username)
     .bind(&new_user.firstname)
     .bind(&new_user.lastname)
     .bind(password_hash)
     .bind(&new_user.phone_number)
     .bind(&new_user.email)
     .bind(&new_user.email_verified)
+    .bind(current_time)
+    .bind(current_time)
     .execute(db_pool)
     .await?;
 
-    Ok(())
+    Ok(public_id)
 }
 
+pub async fn get_user_by_pub_id(db_pool: &PgPool, public_id: Uuid) -> Result<User, sqlx::Error> {
+
+
+    let user  = sqlx::query_as::<_, User>(
+        "SELECT id, public_id, username, firstname, lastname, email, password, created_at,
+              updated_at FROM besecure_proj.users WHERE public_id = $1",
+
+    )
+    .bind(public_id)
+    .fetch_one(db_pool)
+    .await?;
+
+    Ok(user)
+}
+
+pub async fn get_user_by_username(db_pool: &PgPool, username: &str) -> Result<User, sqlx::Error> {
+
+    let user : User = sqlx::query_as::<_, User>(
+        "SELECT id, public_id, username, firstname, lastname, email, password, created_at,
+              updated_at FROM besecure_proj.users WHERE username = $1",
+    )
+    .bind(username)
+    .fetch_one(db_pool)
+    .await?;
+
+    Ok(user)
+}
 
 
 

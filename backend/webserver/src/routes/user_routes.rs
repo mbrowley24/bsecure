@@ -19,8 +19,31 @@ use crate::models::{
 use crate::services::user_services;
 use std::sync::Arc;
 use sqlx::{PgPool};
+use uuid::Uuid;
 
 
+
+#[get("edit/{id}")]
+async fn edit_user(app_data : web::Data<Arc<app_state::state::State>>,
+                   id : web::Path<Uuid>) -> impl Responder {
+
+    let db_pool = &app_data.pg_client;
+
+    let result = user_services::get_user_by_pub_id(db_pool, id.into_inner()).await;
+
+    match result {
+        Ok(user) => {
+            HttpResponse::Ok().json(user)
+        }
+        Err(e) =>{
+
+            println!("{}", e);
+            HttpResponse::BadRequest().body("Invalid request".to_string())
+        }
+    }
+
+
+}
 
 #[post("/login")]
 async fn login() -> impl Responder {
@@ -38,9 +61,8 @@ async fn logout() -> impl Responder {
 
 
 #[post("register")]
-async fn register(app_data : web::Data<Arc<app_state::state::State>> ,new_user: web::Json<Register>) -> impl Responder {
+async fn register_user(app_data : web::Data<Arc<app_state::state::State>> ,new_user: web::Json<Register>) -> impl Responder {
 
-    println!("{:?}", new_user);
 
     let db_client = &app_data.pg_client;
 
@@ -65,5 +87,6 @@ pub fn configure() -> Scope {
     web::scope("")
         .service(login)
         .service(logout)
-        .service(register)
+        .service(register_user)
+        .service(edit_user)
 }

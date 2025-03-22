@@ -10,10 +10,9 @@ use serde::{
 };
 use sqlx::PgPool;
 use uuid::Uuid;
+use crate::models::user::user::User;
 
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Register {
 
 
@@ -35,7 +34,6 @@ pub struct Register {
 }
 
 impl Register {
-
 
     //User field validations
     fn clean_phone_numbers(&mut self) {
