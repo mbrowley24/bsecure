@@ -7,7 +7,7 @@ use crate::models::user::{
     register::Register
 };
 
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row};
 
 use uuid::Uuid;
 use crate::models::user::user::User;
@@ -17,13 +17,13 @@ pub async fn create_new_user(db_pool : &PgPool, new_user : Register) -> Result<U
 
     //Generate Uuid
     let public_id : Uuid = generate_uuid(db_pool).await;
-    println!("{}", public_id);
+
     //Generate hash password using bcrypt and plain text password
     let password_hash : String = hash(new_user.password, DEFAULT_COST).unwrap();
     let current_time = Local::now().naive_local();
 
     sqlx::query(
-        "INSERT INTO besecure_proj.users (public_id, username ,first_name, last_name, password,
+        "INSERT INTO besecure_proj.users (public_id, username ,firstname, lastname, password,
             phone, email,email_verified, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")
     .bind(public_id)
@@ -45,7 +45,7 @@ pub async fn create_new_user(db_pool : &PgPool, new_user : Register) -> Result<U
 pub async fn get_user_by_pub_id(db_pool: &PgPool, public_id: Uuid) -> Result<User, sqlx::Error> {
 
 
-    let user  = sqlx::query_as::<_, User>(
+    let user  = sqlx::query_as::<Postgres, User>(
         "SELECT id, public_id, username, firstname, lastname, email, password, created_at,
               updated_at FROM besecure_proj.users WHERE public_id = $1",
 
@@ -59,7 +59,7 @@ pub async fn get_user_by_pub_id(db_pool: &PgPool, public_id: Uuid) -> Result<Use
 
 pub async fn get_user_by_username(db_pool: &PgPool, username: &str) -> Result<User, sqlx::Error> {
 
-    let user : User = sqlx::query_as::<_, User>(
+    let user : User = sqlx::query_as::<Postgres, User>(
         "SELECT id, public_id, username, firstname, lastname, email, password, created_at,
               updated_at FROM besecure_proj.users WHERE username = $1",
     )
@@ -91,7 +91,7 @@ async fn uuid_exists(pool : &PgPool, public_id : &Uuid) -> bool {
     sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM users WHERE public_id = $1)"
     )
-    .bind(public_id.to_string())
+    .bind(public_id)
     .fetch_one(pool)
     .await
     .unwrap_or(false)

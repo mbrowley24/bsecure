@@ -1,22 +1,31 @@
+use actix_web::{
+    App,
+    dev::Server,
+    HttpServer,
+    web,
+};
+
+mod app_state;
+
+
+mod json_schemas;
+
+mod models;
 
 mod repository{
     pub mod database;
 
 }
 
-mod json_schemas;
-mod app_state;
-
-
+use crate::repository::database;
 mod routes;
-mod router;
 
-mod models;
+mod router;
 mod services;
 
 use std::sync::Arc;
-use actix_web::{web, App, HttpServer};
-use crate::repository::database;
+
+
 
 
 #[actix_web::main]
@@ -33,11 +42,23 @@ async fn main() -> std::io::Result<()> {
 
     println!("Database connections established");
 
+
+    services::role_services::create_roles(&postgres_database)
+        .await
+        .expect("Unable to create role services");
+
+
+    println!("Role services created");
+
     let state = Arc::new(
         app_state::state::State::new(
             http_client, postgres_database
         )
     );
+
+
+
+
 
     HttpServer::new(move || {
         App::new()
@@ -46,7 +67,8 @@ async fn main() -> std::io::Result<()> {
 
 
     })
-        .bind(("127.0.0.1", 8080))?
-        .run()
-        .await
+
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
