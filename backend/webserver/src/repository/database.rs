@@ -1,8 +1,24 @@
-use reqwest::{Client, Error as R_Error};
-use sqlx::{Pool, Postgres, Error};
-use std::env;
 use dotenv::dotenv;
+use mongodb::{Client as mongoClient, options::ClientOptions, Database};
+use reqwest::{Client, Error as R_Error};
+use std::env;
+use sqlx::{Pool, Postgres, Error};
 
+
+
+pub async fn connect_to_mongodb() -> mongodb::error::Result<Database>{
+    dotenv().ok();
+
+    let uri = env::var("MONGO_URI").expect("mongo database not found");
+
+    let mut options = ClientOptions::parse(uri).await?;
+
+    let client = mongodb::Client::with_options(options)?;
+
+    let database = env::var("MONGO_DB").expect("mongo database not found");
+
+    Ok(client.database(database.as_str()))
+}
 
 
 

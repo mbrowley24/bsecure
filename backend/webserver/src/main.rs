@@ -40,23 +40,26 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("HTTP client failed");
 
+    let mongo_database = database::connect_to_mongodb()
+        .await
+        .expect("MongoDB connection failed");
+
     println!("Database connections established");
 
 
-    services::role_services::create_roles(&postgres_database)
+
+    services::init_services::init_services(&postgres_database)
         .await
-        .expect("Unable to create role services");
+        .expect("Unable to init services");
 
-
-    println!("Role services created");
 
     let state = Arc::new(
         app_state::state::State::new(
-            http_client, postgres_database
+            http_client,
+            mongo_database,
+            postgres_database
         )
     );
-
-
 
 
 

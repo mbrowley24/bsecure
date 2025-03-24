@@ -4,6 +4,7 @@ use crate::models::role;
 use sqlx::{PgPool, Postgres, Row};
 use uuid::Uuid;
 use crate::models::role::model::Role;
+use crate::services::common_services::{generate_uuid, exists_name};
 
 pub async fn create_new_role(db_pool : &PgPool, name : &str) -> Result<Uuid, sqlx::Error> {
 
@@ -26,15 +27,15 @@ pub async fn create_new_role(db_pool : &PgPool, name : &str) -> Result<Uuid, sql
 
 pub async fn create_roles(db_pool : &PgPool) -> Result<(), sqlx::Error> {
 
-    let roles : Vec<String> = vec![String::from("free"),
-                                   String::from("paid"),
-                                   String::from("premium")
+    let roles : Vec<String> = vec![String::from("customer"),
+                                   String::from("admin"),
+                                   String::from("developer"),
     ];
 
     for role in roles {
 
         //checks if role exists
-        let role_exists : bool = exists_name(db_pool, &role).await;
+        let role_exists : bool = exists_name(db_pool, &role, "besecure_proj.roles").await;
 
         // skip if role name exists in db
         if role_exists {
@@ -43,33 +44,17 @@ pub async fn create_roles(db_pool : &PgPool) -> Result<(), sqlx::Error> {
         }
 
         create_new_role(db_pool, &role).await?;
+
+        println!("Role {} created", role);
     }
 
     Ok(())
 }
 
 
-pub async fn exists_name(db_pool: &PgPool, name : &str) -> bool {
 
-    sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM besecure_proj.roles WHERE name = $1)"
-    )
-        .bind(name)
-        .fetch_one(db_pool)
-        .await
-        .unwrap_or(false)
-}
 
-pub async fn exists_uuid(db_pool: &PgPool, public_id : Uuid) -> bool {
 
-    sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM users WHERE public_id = $1)"
-    )
-        .bind(public_id.to_string())
-        .fetch_one(db_pool)
-        .await
-        .unwrap_or(false)
-}
 
 
 pub async fn find_by_uuid(db_pool: &PgPool, role_id : &Uuid) -> Result<Role, sqlx::Error> {
@@ -83,18 +68,5 @@ pub async fn find_by_uuid(db_pool: &PgPool, role_id : &Uuid) -> Result<Role, sql
     Ok(role)
 }
 
-pub async fn generate_uuid(db_pool: &PgPool) -> Result<Uuid, sqlx::Error> {
 
-
-    loop{
-
-        let public_id : Uuid = Uuid::new_v4();
-
-        let exists: bool = exists_uuid(db_pool, public_id).await;
-
-        if exists {
-            return Ok(public_id)
-        }
-    }
-}
 
