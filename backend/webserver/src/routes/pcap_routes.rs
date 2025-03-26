@@ -4,67 +4,25 @@ use actix_web::{
     HttpResponse, Responder, Scope,
 };
 use actix_multipart::Multipart;
-use futures_util::StreamExt;
-use std::fs::File;
-use std::io::Write;
+use crate::services::pcap_services;
 use uuid::Uuid;
 
+
+
+/// upload pcap takes in a file from the user to analyze.
 #[post("/upload")]
 async fn upload_pcap(mut payload: Multipart) -> impl Responder {
 
-    let mut title: Option<String> = None;
-    let mut file_path: Option<String> = None;
-
-    while let Some(Ok(mut field)) = payload.next().await {
-        let name = field.name().to_string();
-        println!("name: {}", name);
-        if name == "title" {
-
-            let mut data = Vec::new();
-
-            while let Some(Ok(chunk)) = field.next().await {
-
-                data.extend_from_slice(&chunk);
-            }
-
-            title = Some(String::from_utf8(data).unwrap());
-
-        } else if name == "file" {
-            let file_name = field
-                .content_disposition()
-                .get_filename()
-                .map(|f| sanitize_filename::sanitize(f))
-                .unwrap_or_else(|| "upload_pcap.pcap".into());
-
-            println!("file_name: {}", file_name);
-
-            let path = format!("./uploads/{}", file_name);
-
-            let mut f = File::create(&path).unwrap();
-
-            while let Some(Ok(chunk)) = field.next().await {
-                f.write_all(&chunk).unwrap();
-            }
-
-            file_path = Some(path);
-        }
-    }
+    //Todo need to add permission for subscription tiers.
+    //Todo identify the user plan here before processing the file
+    //free tier customers will get 5 uploads total with limited analysis
 
 
-    match (title, file_path) {
+    let save = pcap_services::save_pcap_record(payload).await?;
 
-        (Some(title), Some(file_path)) => {
 
-            println!("✅ Uploaded: {}", file_path);
-            HttpResponse::Ok().body(format!("Received '{}', file saved to '{}'", title, file_path))
-
-        }
-
-        _ => {
-
-            HttpResponse::BadRequest().body("Please specify both title and file")
-        }
-    }
+    println!("✅ Uploaded: {}", file_path);
+    //         HttpResponse::Ok().body(format!("Received '{}', file saved to '{}'", title, file_path))
 }
 
 #[get("/document/{uuid}")]
