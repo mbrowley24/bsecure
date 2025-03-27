@@ -1,4 +1,4 @@
 
 
 
-pub const PCAP_FILES_TABLE: String = String::from("besecure_proj.pcap_files");
+pub const PCAP_FILES_TABLE: &str = "besecure_proj.pcap_files";

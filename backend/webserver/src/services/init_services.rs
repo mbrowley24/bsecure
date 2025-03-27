@@ -10,7 +10,6 @@ pub async fn init_services(pg_pool: &PgPool) -> Result<(), Box<dyn std::error::E
 
     role_services::create_roles(pg_pool).await.expect("Error planning services");
 
-
     println!("Created role services");
 
     plan_services::create_plans(pg_pool).await.expect("Error planning services");

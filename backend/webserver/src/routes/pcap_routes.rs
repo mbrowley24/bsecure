@@ -28,7 +28,7 @@ async fn upload_pcap(req: HttpRequest,
 
     //method map to pass variables around the function
     let mut method_map : HashMap<String, String> = HashMap::new();
-
+    let new_uuid : Uuid;
     //postgres connection pool
     let pg_pool = &db_pool.pg_pool;
 
@@ -37,17 +37,17 @@ async fn upload_pcap(req: HttpRequest,
     let id : i64 = 0;
 
     //Todo need to add permission for subscription tiers. ***still testing
-    let user_tier_result : Result<String, PcapError> = get_user_tier(pg_pool, public_id)
+    let user_tier_result : Result<&str, PcapError> = get_user_tier(pg_pool, public_id)
         .await
         .map_err(|_| PcapError::Other);
 
     //assign user tier to user_tier or throw forbidden error of error
     match user_tier_result {
-        Ok(tier) => method_map.insert("user_tier".to_string(), tier),
-        Err(e) => return HttpResponse::Forbidden()
-    }
+        Ok(tier) => method_map.insert("user_tier".to_string(), tier.to_string()),
+        Err(e) => return HttpResponse::Forbidden().json({})
+    };
 
-    let max_pcap_file_size : usize = pcap_tier_size(&method_map["user_tier"]);
+    let max_pcap_file_size : usize = pcap_tier_size(&method_map["user_tier"]).await;
 
     //if file is saved and hashmap is returned the operation was successful.
     //else error is sent back to frontend with custom message
@@ -66,7 +66,12 @@ async fn upload_pcap(req: HttpRequest,
 
     let current_time = Local::now().naive_local();
 
-    let new_uuid : Uuid = generate_uuid(pg_pool, &PCAP_FILES_TABLE);
+    //Generate uuid file
+    match generate_uuid(pg_pool, &PCAP_FILES_TABLE).await{
+
+        Ok(uuid) => new_uuid = uuid,
+        Err(err) => return HttpResponse::InternalServerError().json({})
+    }
 
     match create_pcap_record(pg_pool,
                              &method_map["file_name"],
@@ -78,7 +83,12 @@ async fn upload_pcap(req: HttpRequest,
 
         //recorded created successfully
         Ok(pcap_record) => {
-            let message: String = format!("Successfully created pcap record: {}", Ok(pcap_record.name));
+            let record_name: String  = pcap_record.name.unwrap();
+
+            let message: String = format!(
+                "Successfully created pcap record: {}", record_name
+            );
+
             HttpResponse::Ok().json(message)
         }
 
@@ -91,7 +101,7 @@ async fn upload_pcap(req: HttpRequest,
                     HttpResponse::InternalServerError().json(message)
                 }
 
-                _=> HttpResponse::InternalServerError().body({})
+                _=> HttpResponse::InternalServerError().json({})
             }
         }
     }

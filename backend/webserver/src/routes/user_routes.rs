@@ -18,18 +18,18 @@ use crate::models::{
 
 use crate::services::user_services;
 use std::sync::Arc;
-use sqlx::{PgPool};
+use sqlx::{PgPool, Pool, Postgres};
 use uuid::Uuid;
 
 
 
 #[get("edit/{id}")]
-async fn edit_user(app_data : web::Data<Arc<app_state::state::State>>,
+async fn edit_user(app_data : web::Data<Arc<app_state::state::DatabasePool>>,
                    id : web::Path<Uuid>) -> impl Responder {
 
-    let db_pool = &app_data.pg_client;
+    let pg_pool: &Pool<Postgres> = &app_data.pg_pool;
 
-    let result = user_services::get_user_by_pub_id(db_pool, id.into_inner()).await;
+    let result = user_services::get_user_by_pub_id(pg_pool, id.into_inner()).await;
 
     match result {
         Ok(user) => {
@@ -61,10 +61,10 @@ async fn logout() -> impl Responder {
 
 
 #[post("register")]
-async fn register_user(app_data : web::Data<Arc<app_state::state::State>> ,new_user: web::Json<Register>) -> impl Responder {
+async fn register_user(app_data : web::Data<Arc<app_state::state::DatabasePool>> ,new_user: web::Json<Register>) -> impl Responder {
 
 
-    let db_client = &app_data.pg_client;
+    let db_client: &Pool<Postgres> = &app_data.pg_pool;
 
     let result = user_services::create_new_user(db_client, new_user.into_inner())
         .await;

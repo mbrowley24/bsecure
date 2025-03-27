@@ -10,7 +10,7 @@ struct Claims {
     role : String,
 }
 
-async fn set_cookie(public_id: Uuid) -> Cookie {
+async fn set_cookie(public_id: Uuid) -> Cookie<'static> {
 
     Cookie::build("", public_id.to_string())
         .path("/api/v1")

@@ -91,7 +91,7 @@ async fn generate_uuid(pool: &PgPool) -> Uuid {
 }
 
 
-pub async fn get_user_tier(db_pool: &PgPool, public_id: Uuid) -> Result<String, sqlx::Error> {
+pub async fn get_user_tier(db_pool: &PgPool, public_id: Uuid) -> Result<&str, sqlx::Error> {
 
 
     let user_tier : UserPlanTier = sqlx::query_as::<Postgres, UserPlanTier>(
@@ -107,7 +107,7 @@ pub async fn get_user_tier(db_pool: &PgPool, public_id: Uuid) -> Result<String, 
         .await?;
 
 
-    match user_tier.plan_name {
+    match user_tier.plan_name.as_str() {
 
         PAID       => Ok(PAID),
         BUSINESS   => Ok(BUSINESS),

@@ -24,7 +24,7 @@ pub enum  PcapError{
     #[error("Something went wrong.")]
     Other,
 
-    #[error("Problem with file")]
+    #[error("Something went wrong")]
     IOError,
 }
 

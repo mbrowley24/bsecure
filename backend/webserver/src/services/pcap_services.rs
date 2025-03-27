@@ -59,7 +59,7 @@ pub async  fn create_pcap_record(db_pool: &PgPool,
 ) -> Result<PacketFile, PcapError> {
 
     let query_statement : String = insert(
-        PCAP_FILES_TABLE,
+        PCAP_FILES_TABLE.to_string(),
         "public_id, name, path, owner_id, created_at, updated_at".to_string(),
         "$1, $2, $3, $4, $5, $6)".to_string(),
         "id, name ,path".to_string()
@@ -114,28 +114,29 @@ pub async fn save_pcap_record(mut payload :Multipart,
 
     while let Some(Ok(mut field)) = payload.next().await {
 
+
         if let Some(filename) = field.content_disposition().get_filename() {
 
-            file_data.insert(String::from("filename"), safe_filename(filename));
+            let clean_filename: String = safe_filename(filename);
+
+            file_data.insert(String::from("filename"), clean_filename);
 
             //validate file type
-            validate_file_type(&Ok(file_data.get("filename")))?;
+            validate_file_type(&file_data["filename"])?;
 
             file_data.insert(
                 String::from("filepath"),
-                format!("./files/{}.pcap", safe_filename)
+                format!("./files/{}.pcap", &file_data["filename"])
             );
 
-            //crate new pcap file if error return error
-            let mut f : File = create_file(&Ok(file_data.get("filepath")))?;
-
-
-
-            //write the bytes to pcap and check for error
-            write_to_pcap(&mut f, &mut field, &filename, max_pcap_size).await?;
 
 
         };
+
+        //crate new pcap file if error return error
+        let mut f : File = create_file(&file_data["filepath"])?;
+        //write the bytes to pcap and check for error
+        write_to_pcap(&mut f, &mut field, &file_data["filepath"], max_pcap_size).await?;
 
     }
 
@@ -203,7 +204,7 @@ async fn write_to_pcap(file          : &mut File,
         }
 
         //write bits to the file
-        let result : Result<(), PcapError> = file.write_all(&chunk).await;
+        let result : Result<(), PcapError> = file.write_all(&chunk).map_err(|_| PcapError::IOError);
 
         //check for errors
         match result {
