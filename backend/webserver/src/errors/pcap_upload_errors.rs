@@ -1,12 +1,16 @@
 use actix_web::{HttpResponse, ResponseError};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum  PcapError{
 
+    #[error("failed to remove file: {0}")]
+    FailedToRemoveFile(String),
+
     #[error("File not saved")]
-    FileNoSavedError,
+    FileNotSavedError,
 
     #[error("File too large.")]
     FileTooLarge,

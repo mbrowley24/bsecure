@@ -24,6 +24,7 @@ mod router;
 mod services;
 mod errors;
 mod constants;
+mod db_statements;
 
 use std::sync::Arc;
 
@@ -56,7 +57,7 @@ async fn main() -> std::io::Result<()> {
 
 
     let state = Arc::new(
-        app_state::state::State::new(
+        app_state::state::DatabasePool::new(
             http_client,
             mongo_database,
             postgres_database

@@ -1,10 +1,27 @@
-use actix_multipart::{Field, Multipart};
-use chrono::Local;
-use futures_util::StreamExt;
-use crate::constants::pcap_constants::PcapSizes;
-use crate::errors::pcap_upload_errors::PcapError;
-use crate::services::common_services::generate_uuid;
 use std::collections::HashMap;
+use actix_multipart::{Field, Multipart};
+use chrono::{Local, NaiveDateTime};
+use futures_util::{StreamExt, TryFutureExt};
+
+use crate::constants::{
+    pcap_constants::PcapSizes,
+    table_names::PCAP_FILES_TABLE,
+    tier_constants::{
+        PAID, FREE, BUSINESS, ENTERPRISE
+    }
+};
+
+use crate::db_statements::sql_statements::{
+    insert
+};
+use crate::errors::pcap_upload_errors::PcapError;
+use crate::services::{
+    common_services::generate_uuid,
+    user_services::get_user_tier
+};
+use crate::models::packet_data::{
+    packet_file::PacketFile,
+};
 use std::fs::{File, remove_file};
 use std::io::{Error, ErrorKind, Write};
 use sqlx::PgPool;
@@ -24,70 +41,74 @@ fn create_file(filename: &str) -> Result<File, PcapError>{
     match new_file {
 
         Ok(file) => Ok(file),
-        Err(_) => Err(PcapError::FileNoSavedError)
+        Err(_) => Err(PcapError::FileNotSavedError)
     }
 
 }
 
 
 
-///creates method that save a record in the database about the pcap file. Record includes
-/// name (filename) , owner_id and the filepath. Throws an error if error occurs during
-/// inserting data into the database
+///creates method that save a record in the database about the pcap file.
+/// Throws an error if error occurs during inserting data into the database
 pub async  fn create_pcap_record(db_pool: &PgPool,
-                                 name: &str,
-                                 path: &str,
-                                 owner_id : i64
-) -> Result<(), sqlx::Error> {
+                                 name         : &str,
+                                 path         : &str,
+                                 owner_id     : i64,
+                                 public_id    : Uuid,
+                                 current_time : NaiveDateTime
+) -> Result<PacketFile, PcapError> {
 
-    let public_id : Uuid = generate_uuid(db_pool, "besecure_proj.pcap_files")
-        .await.expect("can't generate public ID");
+    let query_statement : String = insert(
+        PCAP_FILES_TABLE,
+        "public_id, name, path, owner_id, created_at, updated_at".to_string(),
+        "$1, $2, $3, $4, $5, $6)".to_string(),
+        "id, name ,path".to_string()
+    );
 
-    let current_time = Local::now().naive_local();
+    let packet_file : PacketFile = sqlx::query_as::<_, PacketFile>(&query_statement)
+                    .bind(public_id)
+                    .bind(name)
+                    .bind(path)
+                    .bind(owner_id)
+                    .bind(current_time)
+                    .bind(current_time)
+                    .fetch_one(db_pool)
+                    .await.map_err(|_| PcapError::FileNotSavedError)?;
 
-    sqlx::query(
-        "INSERT INTO besecure_proj.pcap_files (public_id, name, path, owner_id, created_at,
-            updated_at) VALUES ($1, $2, $3, $4, $5, $6)"
-    )
-
-    .bind(public_id)
-    .bind(name)
-    .bind(path)
-    .bind(owner_id)
-    .bind(current_time)
-    .bind(current_time)
-    .execute(db_pool)
-    .await?;
-
-
-    Ok(())
+    Ok(packet_file)
 }
 
-///max_file_size Validates the size of a file. 10Mb is the defaul
-fn max_file_size() -> Result<(), PcapError> {
 
+/// This function is used to determine the size of the pcap allowed based on subscription type
+pub async fn pcap_tier_size(user_tier_string: &str) -> usize {
 
-    let mut file_size :usize = 0;
+        match user_tier_string {
+            PAID       => PcapSizes::max_bytes(&PcapSizes::Free),
+            BUSINESS   => PcapSizes::max_bytes(&PcapSizes::Business),
+            ENTERPRISE => PcapSizes::max_bytes(&PcapSizes::Enterprise),
+            _          => PcapSizes::max_bytes(&PcapSizes::Free),
+        }
 
-    Ok(())
 }
+
 
 
 ///remove pcap_file removes the file if there is an error during processing
-fn remove_pcap_file(filepath: &str) -> Result<(), PcapError> {
+pub fn remove_pcap_file(filepath: &str) -> Result<&str, PcapError> {
 
-    match remove_file(filepath).map_err(|_| PcapError::FileNoSavedError){
-        Ok(_) => Ok(()),
-        Err(_) => Err(PcapError::FileNoSavedError)
+    match remove_file(filepath).map_err(|_| PcapError::FileNotSavedError){
+        Ok(_) => Ok(filepath),
+        Err(_) => Err(PcapError::FailedToRemoveFile(filepath.to_string()))
     }
 
 }
 
-pub async fn save_pcap_record(mut payload :Multipart) -> Result<(), PcapError>{
-    let mut title: Option<String> = None;
-    let mut file_path: Option<String> = None;
-    let mut message_map : HashMap<String, String>  = HashMap::new();
+pub async fn save_pcap_record(mut payload :Multipart,
+                              max_pcap_size: usize
+) -> Result<HashMap<String, String>, PcapError>{
 
+    //return file data: file path and file name
+    let mut file_data : HashMap<String, String> = HashMap::new();
 
 
 
@@ -95,44 +116,30 @@ pub async fn save_pcap_record(mut payload :Multipart) -> Result<(), PcapError>{
 
         if let Some(filename) = field.content_disposition().get_filename() {
 
-            let safe_filename = safe_filename(filename);
+            file_data.insert(String::from("filename"), safe_filename(filename));
 
             //validate file type
-            validate_file_type(&safe_filename)?;
+            validate_file_type(&Ok(file_data.get("filename")))?;
 
-            let filepath : String = format!("./files/{}.pcap", safe_filename);
+            file_data.insert(
+                String::from("filepath"),
+                format!("./files/{}.pcap", safe_filename)
+            );
 
             //crate new pcap file if error return error
-            let mut f : File = create_file(&filepath)?;
+            let mut f : File = create_file(&Ok(file_data.get("filepath")))?;
+
 
 
             //write the bytes to pcap and check for error
-            write_to_pcap(&mut f, &mut field).await?;
-
-
-
-
-            message_map
-                .get_mut("filename")
-                .unwrap()
-                .push(safe_filename);
-
-            message_map
-                .get_mut("paths")
-                .unwrap()
-                .push(filepath);
+            write_to_pcap(&mut f, &mut field, &filename, max_pcap_size).await?;
 
 
         };
 
-
     }
 
-
-    Ok(message_map)
-
-
-
+    Ok(file_data)
 }
 
 
@@ -170,13 +177,35 @@ fn validate_file_type(filename : &str) -> Result<(), PcapError> {
     Ok(())
 }
 
-//write bytes to pcap file adn return PcapError
-async fn write_to_pcap(file : &mut File, field: &mut Field) -> Result<(), PcapError>{
+///write bytes to pcap file, checks for file size based on customer tier
+/// return PcapError if there is an issue creating the file or if the file becomes too large
+async fn write_to_pcap(file          : &mut File,
+                       field         : &mut Field,
+                       filepath      : &str,
+                       max_file_size : usize
+) -> Result<(), PcapError>{
+
+    //container to measure for file size
+    let mut file_size : usize = 0;
 
     while let Some(Ok(chunk)) = field.next().await {
 
+        //Add current bytes to file size
+        file_size += chunk.len();
+
+        //check max file size is grater than max file size
+        if file_size > max_file_size{
+
+            //remove filepath when file is larger than file size
+            remove_pcap_file(filepath)?;
+
+            return Err(PcapError::FileTooLarge)
+        }
+
+        //write bits to the file
         let result : Result<(), PcapError> = file.write_all(&chunk).await;
 
+        //check for errors
         match result {
 
             Ok(_) => {},
@@ -192,9 +221,6 @@ async fn write_to_pcap(file : &mut File, field: &mut Field) -> Result<(), PcapEr
 }
 
 
-// pub fn get_pcap_collection(db_pool : &PgPool, uuid: Uuid) -> Result<(), sqlx::Error> {
-//
-// }
 
 
 

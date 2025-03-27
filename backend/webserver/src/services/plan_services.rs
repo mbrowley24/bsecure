@@ -30,8 +30,7 @@ pub async fn create_new_plan(db_pool : &PgPool, name : &str) -> Result<Uuid, sql
 pub async fn create_plans(db_pool : &PgPool) -> Result<(), sqlx::Error> {
 
     let plans : Vec<String> = vec![String::from("free"),
-                                   String::from("basic"),
-                                   String::from("analysis"),
+                                   String::from("paid"),
                                    String::from("business"),
                                    String::from("enterprise")
     ];

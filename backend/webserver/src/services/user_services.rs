@@ -3,8 +3,12 @@ use bcrypt::{hash, DEFAULT_COST};
 use chrono::{
     Local,
 };
+use crate::constants::tier_constants::{
+    FREE, PAID, BUSINESS, ENTERPRISE
+};
 use crate::models::user::{
-    register::Register
+    register::Register,
+    user_plan_tier::UserPlanTier
 };
 
 use sqlx::{PgPool, Postgres, Row};
@@ -72,6 +76,7 @@ pub async fn get_user_by_username(db_pool: &PgPool, username: &str) -> Result<Us
 
 
 
+
 //generate uuid for users
 async fn generate_uuid(pool: &PgPool) -> Uuid {
 
@@ -83,6 +88,33 @@ async fn generate_uuid(pool: &PgPool) -> Uuid {
         }
 
     }
+}
+
+
+pub async fn get_user_tier(db_pool: &PgPool, public_id: Uuid) -> Result<String, sqlx::Error> {
+
+
+    let user_tier : UserPlanTier = sqlx::query_as::<Postgres, UserPlanTier>(
+        "SELECT users.id        AS id,
+                    users.public_id AS public_id,
+                    plans.id        AS plan_id,
+                    plans.name      AS plan_name,
+                    FROM besecure_proj.users WHERE public_id = $1
+                    JOIN users on users.plan_id = plans.id",
+    )
+        .bind(public_id)
+        .fetch_one(db_pool)
+        .await?;
+
+
+    match user_tier.plan_name {
+
+        PAID       => Ok(PAID),
+        BUSINESS   => Ok(BUSINESS),
+        ENTERPRISE => Ok(ENTERPRISE),
+        _          => Ok(FREE)
+    }
+
 }
 
 //uuid_exists check if the uuid exists in database

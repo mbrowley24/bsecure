@@ -39,3 +39,8 @@ pub async fn generate_uuid(db_pool: &PgPool, table_name : &str) -> Result<Uuid, 
         println!("generate uuid for {} -> {}", table_name, public_id);
     }
 }
+
+
+pub async fn get_subscription(db_pool: &PgPool, public_id : Uuid) -> Result<String, sqlx::Error> {
+
+}
