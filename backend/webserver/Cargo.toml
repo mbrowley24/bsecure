@@ -21,5 +21,6 @@ thiserror         = "2.0.12"
 tokio             = {version = "1.44.0", features = ["full"]}
 uuid              = { version = "1", features = ["v4", "serde"] }
 sqlx              = { version = "0.8.3", features = ["chrono", "postgres", "uuid" , "runtime-tokio", "tls-native-tls"] }
+rand = "0.8.5"
 
 

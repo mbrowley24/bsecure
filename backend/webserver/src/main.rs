@@ -20,7 +20,6 @@ mod repository{
 use crate::repository::database;
 mod routes;
 
-mod router;
 mod services;
 mod errors;
 mod constants;
@@ -28,6 +27,11 @@ mod db_statements;
 
 use std::sync::Arc;
 
+use routes::{
+    pcap_routes::configure as configure_pcap_routes,
+    user_routes::configure as configure_user_routes,
+
+};
 
 
 
@@ -69,7 +73,8 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
-            .service(router::configure())
+            .service(configure_user_routes())
+            .service(configure_pcap_routes())
 
 
     })

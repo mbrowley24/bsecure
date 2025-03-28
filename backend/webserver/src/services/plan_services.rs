@@ -46,11 +46,8 @@ pub async fn create_plans(db_pool : &PgPool) -> Result<(), sqlx::Error> {
             continue;
         }
 
-        println!("Creating plan {}", plan);
-
         create_new_plan(db_pool, &plan).await?;
 
-        println!("Plan {} created", plan);
     }
 
     Ok(())

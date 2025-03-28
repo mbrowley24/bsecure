@@ -3,11 +3,20 @@ use bcrypt::{hash, DEFAULT_COST};
 use chrono::{
     Local,
 };
-use crate::constants::tier_constants::{
-    FREE, PAID, BUSINESS, ENTERPRISE
+use crate::constants::{
+    tier_constants::{
+        FREE, PAID, BUSINESS, ENTERPRISE
+    },
+    table_names::{
+        USERS_TABLE
+    }
+};
+
+use crate::db_statements::sql_statements::{
+    insert
 };
 use crate::models::user::{
-    register::Register,
+    dto::DTO,
     user_plan_tier::UserPlanTier
 };
 
@@ -17,33 +26,27 @@ use uuid::Uuid;
 use crate::models::user::user::User;
 
 //creates a new user generates Uuid and return it upon a successful save
-pub async fn create_new_user(db_pool : &PgPool, new_user : Register) -> Result<Uuid, sqlx::Error> {
+pub async fn create_new_user(pg_pool  : &PgPool,
+                             query    : &str,
+                             new_user : User
+) -> Result<User, sqlx::Error> {
 
-    //Generate Uuid
-    let public_id : Uuid = generate_uuid(db_pool).await;
 
-    //Generate hash password using bcrypt and plain text password
-    let password_hash : String = hash(new_user.password, DEFAULT_COST).unwrap();
-    let current_time = Local::now().naive_local();
+    let saved_user = sqlx::query_as::<_, User>(query)
+        .bind(&new_user.public_id)
+        .bind(&new_user.username)
+        .bind(&new_user.firstname)
+        .bind(&new_user.lastname)
+        .bind(&new_user.password)
+        .bind(&new_user.phone)
+        .bind(&new_user.email)
+        .bind(&new_user.email_verified)
+        .bind(new_user.created_at)
+        .bind(new_user.updated_at)
+        .fetch_one(pg_pool)
+        .await?;
 
-    sqlx::query(
-        "INSERT INTO besecure_proj.users (public_id, username ,firstname, lastname, password,
-            phone, email,email_verified, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")
-    .bind(public_id)
-    .bind(&new_user.username)
-    .bind(&new_user.firstname)
-    .bind(&new_user.lastname)
-    .bind(password_hash)
-    .bind(&new_user.phone_number)
-    .bind(&new_user.email)
-    .bind(&new_user.email_verified)
-    .bind(current_time)
-    .bind(current_time)
-    .execute(db_pool)
-    .await?;
-
-    Ok(public_id)
+    Ok(saved_user)
 }
 
 pub async fn get_user_by_pub_id(db_pool: &PgPool, public_id: Uuid) -> Result<User, sqlx::Error> {
