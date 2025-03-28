@@ -3,8 +3,9 @@ use chrono::{Local, NaiveDateTime};
 
 use sqlx::{PgPool, Postgres, Row};
 use uuid::Uuid;
+use crate::db_statements::sql_statements::exists_name;
 use crate::models::plan::model::Plan;
-use crate::services::common_services::{exists_name, generate_uuid};
+use crate::services::common_services::generate_uuid;
 pub async fn create_new_plan(db_pool : &PgPool, name : &str) -> Result<Uuid, sqlx::Error> {
 
     let public_id : Uuid = generate_uuid(db_pool, "besecure_proj.plans")

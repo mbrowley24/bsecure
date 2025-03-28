@@ -1,8 +1,15 @@
 use std::collections::HashMap;
 use chrono::{Local, NaiveDateTime};
+use crate::services::common_services::generate_uuid;
+use crate::db_statements::{
+    sql_statements::{
+        exists_name,
+    },
+
+};
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::services::common_services::{exists_name, generate_uuid};
+
 
 fn us_states_lowercase() -> HashMap<&'static str, &'static str> {
     let mut states = HashMap::new();
@@ -96,8 +103,8 @@ pub async fn insert_us_state(db_pool : &PgPool,
 
     let current_time : NaiveDateTime  = Local::now().naive_local();
 
-    sqlx::query("INSERT INTO besecure_proj.us_states (public_id, code, name, created_at, updated_at) VALUES
-            ($1, $2, $3, $4, $5)"
+    sqlx::query("INSERT INTO besecure_proj.us_states (public_id, code, name, created_at,
+                 updated_at) VALUES ($1, $2, $3, $4, $5)"
     )
         .bind(public_id)
         .bind(code)

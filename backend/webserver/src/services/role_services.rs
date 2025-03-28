@@ -4,7 +4,7 @@ use crate::models::role;
 use sqlx::{PgPool, Postgres, Row};
 use uuid::Uuid;
 use crate::models::role::model::Role;
-use crate::services::common_services::{generate_uuid, exists_name};
+use crate::db_statements::sql_statements::exists_name;
 
 pub async fn create_new_role(db_pool : &PgPool, name : &str) -> Result<Uuid, sqlx::Error> {
 

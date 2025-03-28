@@ -30,8 +30,6 @@ pub struct DTO {
     pub hash_password        : Option<String>,
     pub password_confirm     : Option<String>,
     pub phone_number         : Option<String>,
-    pub phone_number_confirm : Option<String>,
-    pub clean_phone_number   : Option<String>,
     pub current_time         : Option<NaiveDateTime>
 
 }
@@ -39,7 +37,7 @@ pub struct DTO {
 impl DTO {
 
     //User field validations
-    fn clean_phone_numbers(&mut self) {
+    fn clean_phone_number(&mut self) {
 
         if let Some(phone_number) = &mut self.phone_number {
             phone_number.retain(|c| c.is_ascii_digit());
@@ -58,26 +56,25 @@ impl DTO {
         self.email_verified = true;
     }
 
-    //validate email of users
-
-
-
-    //validate first and last names of users
-
-
 
     //generate hashed password
     pub fn generate_hashed_password(&mut self) -> Result<(), bcrypt::BcryptError> {
 
-        match hash(&self.password, DEFAULT_COST){
+        if let Some(password) = &self.password{
 
-            Ok(hashed) => {
-                self.hash_password = Some(hashed);
+            match hash(password, DEFAULT_COST) {
+                Ok(hash) => {
+                    self.password = Some(hash);
+                }
+                Err(e) => return Err(e)
+            }
 
-                Ok(())
-            },
-            Err(error) => Err(error)
+        }else{
+
+            return Err(bcrypt::BcryptError::InvalidHash("".to_string()))
         }
+
+        Ok(())
 
     }
 
@@ -94,13 +91,9 @@ impl DTO {
 
     }
 
-
     pub fn set_current_time(&mut self, current_time: NaiveDateTime) {
 
-        match self.current_time {
-            Some(current_time) => self.current_time = Some(current_time),
-            None => {}
-        }
+        self.current_time = Some(current_time);
     }
 
     pub fn set_hashed_password(&mut self, hashed_password: String) {
@@ -111,24 +104,30 @@ impl DTO {
         self.public_id = Some(public_id)
     }
 
-    fn validate(self) -> HashMap<String, String>  {
-
-        let mut errors = HashMap::new();
+    fn validate(&mut self, errors: &mut HashMap<String, String>) {
 
 
-
-        return errors;
+        self.validate_username(errors);
+        self.validate_firstname(errors);
+        self.validate_lastname(errors);
+        self.validate_phone_number(errors);
+        self.validate_email(errors);
+        self.validate_password(errors);
 
     }
 
     pub fn validate_email(&self,
-                          errors: &mut HashMap<String, String>) -> &HashMap<String, String> {
+                          errors: &mut HashMap<String, String>){
 
 
         let re = match Regex::new(r"^[\w.-]+@[\w.-]+\.\w+$"){
 
             Ok(re) => re,
-            Err(_) => return errors
+            Err(_) => {
+
+                errors.insert("email".to_string(), "required".to_string());
+                return
+            }
         };
 
         if let Some(email) = &self.email{
@@ -147,16 +146,19 @@ impl DTO {
 
         }
 
-        errors
     }
     pub fn validate_firstname(&self,
                               errors: &mut HashMap<String, String>
-    ) -> &HashMap<String,String>{
+    ){
 
         let name_reg = match Regex::new(r"^[A-Za-z]+(?:[-' ][A-Za-z]+)*$"){
 
             Ok(re) => re,
-            Err(_) => return errors
+            Err(_) => {
+
+                errors.insert("firstname".to_string(), "required".to_string());
+                return
+            }
         };
 
 
@@ -186,17 +188,21 @@ impl DTO {
             errors.insert("firstname".to_string(), "required".to_string());
         }
 
-        errors
     }
 
     pub fn validate_lastname(&self,
                              errors: &mut HashMap<String, String>
-    ) -> &HashMap<String,String> {
+    ){
 
         let name_reg = match Regex::new(r"^[A-Za-z]+(?:[-' ][A-Za-z]+)*$"){
 
             Ok(re) => re,
-            Err(_) => return errors
+            Err(_) => {
+
+                errors.insert("lastname".to_string(), "required".to_string());
+
+                return
+            }
         };
 
 
@@ -221,17 +227,18 @@ impl DTO {
         else{
             errors.insert("lastname".to_string(), "required".to_string());
         }
-
-        errors
     }
 
     pub fn validate_password(&self,
                              errors: &mut HashMap<String, String>
-    ) -> &HashMap<String, String> {
+    ) {
 
         let re = match Regex::new(r#"['"<>;\\\x00\n\r]"#){
             Ok(re) => re,
-            Err(_) => return errors
+            Err(_) =>{
+                errors.insert("password".to_string(), "required".to_string());
+                return
+            }
         };
 
         if let Some((pw, cpw)) = self.password.as_ref().zip(
@@ -257,13 +264,11 @@ impl DTO {
         }else{
             errors.insert("password".to_string(), "required".to_string());
         }
-
-        errors
     }
 
-    pub fn validate_phone_number(&self,
+    pub fn validate_phone_number(&mut self,
                                  errors: &mut HashMap<String, String>
-    ) -> &HashMap<String,String> {
+    ){
 
 
         self.clean_phone_number();
@@ -271,35 +276,40 @@ impl DTO {
 
         let re = match Regex::new(r"^\d{10}$"){
             Ok(re) => re,
-            Err(_) => return errors
+            Err(_) =>{
+                errors.insert("phone_number".to_string(), "required".to_string());
+                return
+            }
         };
 
-        match &self.phone_number {
-            Some(phone_number) => re.is_match(phone_number),
-            None => false
-        }
+
 
         if let Some(phone_number) = &self.phone_number{
 
             if phone_number.trim().is_empty() {
                 errors.insert("phone_number".to_string(), "required".to_string());
             }
-            else if re.is_match(&self.phone_number) {
+            else if re.is_match(phone_number) {
 
                 errors.insert("phone_number".to_string(), "phone_number is not valid".to_string());
 
             }
         }
 
-        errors
 
     }
 
     pub fn validate_username(&self,
                              errors: &mut HashMap<String, String>
-    ) -> &HashMap<String, String> {
+    ){
 
-
+        let username_reg = match Regex::new(r"^[a-zA-Z0-9]+$"){
+            Ok(re) => re,
+            Err(_) =>{
+                errors.insert("username".to_string(), "required".to_string());
+                return
+            }
+        };
 
         if let Some(username) = &self.username {
 
@@ -307,7 +317,7 @@ impl DTO {
 
                 errors.insert("username".to_string(), "required".to_string());
             }
-            else if username_re.is_match(username) {
+            else if !username_reg.is_match(username) {
 
                 errors.insert(String::from("username"), String::from("username invalid"));
             }
@@ -327,9 +337,6 @@ impl DTO {
             errors.insert("username".to_string(), "required".to_string());
         }
 
-        errors
     }
-
-
 
 }

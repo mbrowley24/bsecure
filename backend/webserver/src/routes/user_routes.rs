@@ -77,7 +77,7 @@ async fn logout() -> impl Responder {
 
 #[post("register")]
 async fn register_user(app_data : web::Data<Arc<DatabasePool>>
-                       ,mut reg_user: web::Json<DTO>
+                       ,mut reg_data: web::Json<DTO>
 ) -> impl Responder {
 
     let pg_pool: &Pool<Postgres> = &app_data.pg_pool;
@@ -90,38 +90,44 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
         Err(_) => return HttpResponse::InternalServerError().json({})
     };
 
+    let mut reg_user: DTO = reg_data.into_inner();
+
     //assign unique uuid
     reg_user.set_public_id(uuid);
 
 
     //Generate hash password using bcrypt and plain text password
-    let hashed_password = match hash(&reg_user.password, DEFAULT_COST){
+    //let hashed_password = match hash(&reg_user.password, DEFAULT_COST){
+    match reg_user.generate_hashed_password(){
 
-        Ok(hashed) => hashed,
+        Ok(()) => String::from("hashed password created"),
         Err(_) => return HttpResponse::InternalServerError().json({})
     };
 
-    reg_user.set_hashed_password(hashed_password);
 
+    //use local time  to see current time on the object
     reg_user.set_current_time(Local::now().naive_local());
 
-    let new_user =  match User::register_to_new(reg_user.into_inner()){
+    //convert registered user data and convert in user
+    let new_user =  match User::register_to_new(reg_user){
 
         Some(new_user) => new_user,
         None => return HttpResponse::InternalServerError().json({})
     };
 
-    let query_string = match new_user.insert_new_user_query(){
-        Ok(query_string) => query_string,
-        Err(_) => return HttpResponse::InternalServerError().json({})
+    //generate insert query string option
+    let query_option: Option<String> = new_user.insert_new_user_query();
+
+
+    let query_string = match &query_option{
+        Some(query_string) => query_string,
+        None => return HttpResponse::InternalServerError().json({})
     };
 
-    let result = create_new_user(pg_pool, query_string)
-        .await;
-    
-    match result  {
+    //save the user
+    match create_new_user(pg_pool, query_string, new_user).await {
 
-        Ok(user) => {
+        Ok(_) => {
             HttpResponse::Ok().body("success")
         }
 

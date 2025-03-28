@@ -17,7 +17,6 @@ use uuid::Uuid;
 pub struct User{
 
 
-    #[serde(rename = "id")]
     pub id              : Option<i64>,
     pub public_id       : Option<Uuid>,
     pub username        : Option<String>,
@@ -25,7 +24,6 @@ pub struct User{
     pub firstname       : Option<String>,
     pub lastname        : Option<String>,
     pub password        : Option<String>,
-    #[serde(default = "default_false")]
     pub email_verified  : bool,
     pub email_key       : Option<String>,
     pub phone           : Option<String>,
