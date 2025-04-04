@@ -6,3 +6,4 @@ pub mod init_services;
 mod address_services;
 pub mod pcap_services;
 pub mod http_request_service;
+mod vertical_services;
