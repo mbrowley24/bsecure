@@ -15,15 +15,12 @@ use crate::db_statements::sql_statements::{
     insert
 };
 use crate::errors::pcap_upload_errors::PcapError;
-use crate::services::{
-    common_services::generate_uuid,
-    user_services::get_user_tier
-};
+
 use crate::models::packet_data::{
     packet_file::PacketFile,
 };
 use std::fs::{File, remove_file};
-use std::io::{Error, ErrorKind, Write};
+use std::io::Write;
 use sqlx::PgPool;
 
 use uuid::Uuid;
@@ -129,8 +126,6 @@ pub async fn save_pcap_record(mut payload :Multipart,
                 format!("./files/{}.pcap", &file_data["filename"])
             );
 
-
-
         };
 
         //crate new pcap file if error return error
@@ -173,7 +168,6 @@ fn validate_file_type(filename : &str) -> Result<(), PcapError> {
 
         return Err(PcapError::InvalidExtension)
     }
-
 
     Ok(())
 }
@@ -218,7 +212,6 @@ async fn write_to_pcap(file          : &mut File,
     }
 
     Ok(())
-
 }
 
 

@@ -21,11 +21,11 @@ use std::sync::Arc;
 use chrono::Local;
 
 /// upload pcap takes in a file from the user to analyze.
-#[post("/upload")]
+#[post("/pcap/upload")]
 async fn upload_pcap(req: HttpRequest,
                      db_pool: web::Data<Arc<DatabasePool>>,
                      mut payload: Multipart) -> impl Responder {
-
+    println!("PART UPLOAD");
     //method map to pass variables around the function
     let mut method_map : HashMap<String, String> = HashMap::new();
     let new_uuid : Uuid;
@@ -41,6 +41,7 @@ async fn upload_pcap(req: HttpRequest,
         .await
         .map_err(|_| PcapError::Other);
 
+
     //assign user tier to user_tier or throw forbidden error of error
     match user_tier_result {
         Ok(tier) => method_map.insert("user_tier".to_string(), tier.to_string()),
@@ -49,6 +50,7 @@ async fn upload_pcap(req: HttpRequest,
 
     let max_pcap_file_size : usize = pcap_tier_size(&method_map["user_tier"]).await;
 
+    println!("max_pcap_file_size = {}", max_pcap_file_size);
     //if file is saved and hashmap is returned the operation was successful.
     //else error is sent back to frontend with custom message
     match save_pcap_record(payload, max_pcap_file_size).await{
@@ -63,14 +65,13 @@ async fn upload_pcap(req: HttpRequest,
     }
 
     //save record of new file to database with file name, filepath and owner_id
-
     let current_time = Local::now().naive_local();
 
     //Generate uuid file
     match generate_uuid(pg_pool, &PCAP_FILES_TABLE).await{
 
         Ok(uuid) => new_uuid = uuid,
-        Err(err) => return HttpResponse::InternalServerError().json({})
+        Err(_) => return HttpResponse::InternalServerError().json({})
     }
 
     match create_pcap_record(pg_pool,
@@ -83,8 +84,8 @@ async fn upload_pcap(req: HttpRequest,
 
         //recorded created successfully
         Ok(pcap_record) => {
-            let record_name: String  = pcap_record.name.unwrap();
 
+            let record_name: String  = pcap_record.name.unwrap();
             let message: String = format!(
                 "Successfully created pcap record: {}", record_name
             );
@@ -105,9 +106,6 @@ async fn upload_pcap(req: HttpRequest,
             }
         }
     }
-
-
-    //         HttpResponse::Ok().body(format!("Received '{}', file saved to '{}'", title, file_path))
 }
 
 #[get("/document/{uuid}")]
@@ -128,8 +126,9 @@ async fn get_pcap_check(user_id: Path<Uuid>) -> impl Responder {
     HttpResponse::Ok().body(format!("Check capture for user_id: {}", user_id))
 }
 
-pub fn configure() -> Scope {
-    web::scope("/pcap")
-        .service(upload_pcap)
-
-}
+// pub fn configure(cfg: &mut web::ServiceConfig) {
+//     cfg.service(
+//         web::scope("/api/v1/pcap")
+//             .service(upload_pcap)
+//     );
+// }

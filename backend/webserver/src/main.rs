@@ -27,11 +27,7 @@ mod db_statements;
 
 use std::sync::Arc;
 
-use routes::{
-    pcap_routes::configure as configure_pcap_routes,
-    user_routes::configure as configure_user_routes,
-
-};
+use routes::routes::configure_routes;
 
 
 
@@ -73,8 +69,8 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
-            .service(configure_user_routes())
-            .service(configure_pcap_routes())
+
+            .configure(configure_routes)
 
 
     })

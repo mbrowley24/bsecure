@@ -139,10 +139,14 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
 
 }
 
-pub fn configure() -> Scope {
-    web::scope("/api/v1")
-        .service(login)
-        .service(logout)
-        .service(register_user)
-        .service(edit_user)
-}
+// pub fn configure(cfg: &mut web::ServiceConfig){
+//
+//     cfg.service(
+//         web::scope("/api/v1")
+//             .service(login)
+//             .service(logout)
+//             .service(register_user)
+//             .service(edit_user)
+//     );
+//
+// }
