@@ -25,7 +25,7 @@ pub async fn generate_uuid(db_pool: &PgPool, table_name : &str) -> Result<Uuid, 
 }
 
 
-fn generate_random_string(len: usize) -> String {
+pub fn generate_random_string(len: usize) -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(len)

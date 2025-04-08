@@ -1,5 +1,6 @@
 
 use bcrypt::{hash, DEFAULT_COST};
+use crate::services::common_services::generate_random_string;
 use chrono::{
     Local,
 };
@@ -7,17 +8,13 @@ use crate::constants::{
     tier_constants::{
         FREE, PAID, BUSINESS, ENTERPRISE
     },
-    table_names::{
-        USERS_TABLE
-    }
 };
 
-use crate::db_statements::sql_statements::{
-    insert
-};
+
 use crate::models::user::{
     dto::DTO,
-    user_plan_tier::UserPlanTier
+    slim_user::SlimUser,
+    user_plan_tier::UserPlanTier,
 };
 
 use sqlx::{PgPool, Postgres, Row};
@@ -29,20 +26,22 @@ use crate::models::user::user::User;
 pub async fn create_new_user(pg_pool  : &PgPool,
                              query    : &str,
                              new_user : User
-) -> Result<User, sqlx::Error> {
+) -> Result<SlimUser, sqlx::Error> {
 
+    let email_key : String = generate_random_string(60);
 
-    let saved_user = sqlx::query_as::<_, User>(query)
-        .bind(&new_user.public_id)
-        .bind(&new_user.username)
-        .bind(&new_user.firstname)
-        .bind(&new_user.lastname)
-        .bind(&new_user.password)
-        .bind(&new_user.phone)
-        .bind(&new_user.email)
-        .bind(&new_user.email_verified)
-        .bind(new_user.created_at)
-        .bind(new_user.updated_at)
+    let saved_user = sqlx::query_as::<_, SlimUser>(query)
+        .bind(Some(new_user.public_id))
+        .bind(Some(new_user.username))
+        .bind(Some(new_user.firstname))
+        .bind(Some(new_user.lastname))
+        .bind(Some(new_user.password))
+        .bind(Some(new_user.phone))
+        .bind(Some(new_user.email))
+        .bind(Some(new_user.email_verified))
+        .bind(email_key)
+        .bind(Some(new_user.created_at))
+        .bind(Some(new_user.updated_at))
         .fetch_one(pg_pool)
         .await?;
 
@@ -53,8 +52,8 @@ pub async fn get_user_by_pub_id(db_pool: &PgPool, public_id: Uuid) -> Result<Use
 
 
     let user  = sqlx::query_as::<Postgres, User>(
-        "SELECT id, public_id, username, firstname, lastname, email, password, created_at,
-              updated_at FROM besecure_proj.users WHERE public_id = $1",
+        "SELECT id, public_id, username, firstname, lastname, password, email, email_verified,
+              email_key, created_at, updated_at FROM besecure_proj.users WHERE public_id = $1",
 
     )
     .bind(public_id)

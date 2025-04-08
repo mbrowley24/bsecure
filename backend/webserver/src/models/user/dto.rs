@@ -21,7 +21,6 @@ pub struct DTO {
     pub public_id            : Option<Uuid>,
     pub username             : Option<String>,
     pub email                : Option<String>,
-    pub email_confirmed      : Option<String>,
     #[serde(default = "default_false")]
     pub email_verified       : bool,
     pub firstname            : Option<String>,
@@ -104,7 +103,7 @@ impl DTO {
         self.public_id = Some(public_id)
     }
 
-    fn validate(&mut self, errors: &mut HashMap<String, String>) {
+    pub fn validate(&mut self, errors: &mut HashMap<String, String>) {
 
 
         self.validate_username(errors);
@@ -135,7 +134,7 @@ impl DTO {
             if email.trim().is_empty() {
                 errors.insert("email".to_string(), "required".to_string());
             }
-            else if re.is_match(email) {
+            else if !re.is_match(email) {
                 errors.insert("email".to_string(), "invalid".to_string());
             }
 
@@ -168,7 +167,7 @@ impl DTO {
 
                 errors.insert("firstname".to_string(), "required".to_string());
             }
-            else if name_reg.is_match(firstname){
+            else if !name_reg.is_match(firstname){
 
                 errors.insert("firstname".to_string(), "first name invalid".to_string());
             }
@@ -177,7 +176,7 @@ impl DTO {
                 errors.insert("firstname_length".to_string(), "first_name is too long".to_string());
             }
 
-            else if !firstname.trim().len() < 2 {
+            else if firstname.trim().len() < 2 {
 
                 errors.insert("firstname_length".to_string(), "first_name to short".to_string());
 
@@ -212,10 +211,10 @@ impl DTO {
 
                 errors.insert("last_name".to_string(), "required".to_string());
             }
-            else if name_reg.is_match(lastname){
+            else if !name_reg.is_match(lastname){
                 errors.insert("last_name".to_string(), "last name invalid".to_string());
             }
-            else if lastname.trim().len() < 10 {
+            else if lastname.trim().len() < 2 {
 
                 errors.insert("last_name_length".to_string(), "last name is too short".to_string());
 
@@ -256,7 +255,7 @@ impl DTO {
 
                     errors.insert("password_length".to_string(), "password to long".to_string());
 
-            }else if pw.trim().len() < 12 {
+            }else if pw.trim().len() < 10 {
 
                 errors.insert("password_length".to_string(), "password to short".to_string());
             }
@@ -289,7 +288,7 @@ impl DTO {
             if phone_number.trim().is_empty() {
                 errors.insert("phone_number".to_string(), "required".to_string());
             }
-            else if re.is_match(phone_number) {
+            else if !re.is_match(phone_number) {
 
                 errors.insert("phone_number".to_string(), "phone_number is not valid".to_string());
 

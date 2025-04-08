@@ -69,15 +69,16 @@ impl User {
 
 
         let insert_field : String = String::from(
-            "public_id, username, firstname, lastname, email, password, email_verified, \
-                email_key, password, created_at, updated_at"
+            "public_id, username, firstname, lastname, password, phone, email, email_verified, \
+                email_key, created_at, updated_at"
         );
 
         let insert_value: String = String::from(
             "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11"
         );
 
-        let return_values :String = String::from("id, email");
+        let return_values :String = String::from("id, public_id, username, firstname, lastname, \
+                                                     phone, email, email_verified, email_key");
 
 
        Some(insert(USERS_TABLE.to_string(), insert_field, insert_value, return_values))

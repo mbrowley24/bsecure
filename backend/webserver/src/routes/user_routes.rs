@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use actix_web::{
     get,
@@ -81,8 +82,7 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
 ) -> impl Responder {
 
     let pg_pool: &Pool<Postgres> = &app_data.pg_pool;
-    let new_user : User;
-
+    let mut errors : HashMap<String, String> = HashMap::new();
     //generate uuid generates uuid and validates the valid is unique
     let uuid : Uuid = match generate_uuid(pg_pool, USERS_TABLE).await{
         Ok(uuid ) => uuid ,
@@ -90,15 +90,27 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
         Err(_) => return HttpResponse::InternalServerError().json({})
     };
 
-    let mut reg_user: DTO = reg_data.into_inner();
+    let mut user_dto: DTO = reg_data.into_inner();
+
+    //validate user and check for errors
+    user_dto.validate(&mut errors);
+
+    for (key, value) in &errors{
+        println!("key: {} value: {}", key, value);
+    }
+
+    //return errors if errors exists
+    if errors.len() > 0 {
+        return HttpResponse::BadRequest().json({})
+    }
 
     //assign unique uuid
-    reg_user.set_public_id(uuid);
+    user_dto.set_public_id(uuid);
 
 
     //Generate hash password using bcrypt and plain text password
     //let hashed_password = match hash(&reg_user.password, DEFAULT_COST){
-    match reg_user.generate_hashed_password(){
+    match user_dto.generate_hashed_password(){
 
         Ok(()) => String::from("hashed password created"),
         Err(_) => return HttpResponse::InternalServerError().json({})
@@ -106,10 +118,10 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
 
 
     //use local time  to see current time on the object
-    reg_user.set_current_time(Local::now().naive_local());
+    user_dto.set_current_time(Local::now().naive_local());
 
     //convert registered user data and convert in user
-    let new_user =  match User::register_to_new(reg_user){
+    let new_user: User =  match User::register_to_new(user_dto){
 
         Some(new_user) => new_user,
         None => return HttpResponse::InternalServerError().json({})
@@ -124,6 +136,8 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
         None => return HttpResponse::InternalServerError().json({})
     };
 
+    println!("{:?}", query_string);
+    //println!("{:?}", new_user);
     //save the user
     match create_new_user(pg_pool, query_string, new_user).await {
 
