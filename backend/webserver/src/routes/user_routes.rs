@@ -22,6 +22,7 @@ use crate::models::{
         user::User
     }
 };
+use regex::Regex;
 
 use crate::services::{
     user_services::{
@@ -35,6 +36,7 @@ use crate::services::{
 use std::sync::Arc;
 
 use sqlx::{PgPool, Pool, Postgres};
+use sqlx::postgres::PgDatabaseError;
 use uuid::Uuid;
 
 
@@ -101,7 +103,7 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
 
     //return errors if errors exists
     if errors.len() > 0 {
-        return HttpResponse::BadRequest().json({})
+        return HttpResponse::BadRequest().json(errors)
     }
 
     //assign unique uuid
@@ -145,10 +147,37 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
             HttpResponse::Ok().body("success")
         }
 
-        Err(error) => {
-            println!("{:?}", error);
-            HttpResponse::InternalServerError().body("Something went wrong")
+        Err(sqlx::Error::Database(db_error)) => {
+
+            let mut error_message: HashMap<String, String> = HashMap::new();
+
+            if let Some(error) = db_error.try_downcast_ref::<PgDatabaseError>(){
+
+                if let Some(detail) = error.detail(){
+
+                    //checks for already exists error in detail
+                    let re = Regex::new(r"Key \((\w+)\)=\((.+?)\) already exists\.").unwrap();
+
+                    //check for a field that already exists
+                    if let Some(cap) = re.captures(detail){
+
+                        error_message.insert(
+                            String::from(&cap[1]),
+                            format!("{} already exists", &cap[2])
+                        );
+
+                    }else if let Some(cap) = re.captures(detail){
+
+                    }
+                }
+            }
+
+            println!("read this ");
+            println!("{:?}", error_message);
+            HttpResponse::BadRequest().json(error_message)
         }
+
+        _ => HttpResponse::InternalServerError().json({})
     }
 
 }
