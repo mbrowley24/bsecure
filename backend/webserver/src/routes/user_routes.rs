@@ -136,7 +136,7 @@ async fn register_user(app_data : web::Data<Arc<DatabasePool>>
         None => return HttpResponse::InternalServerError().json({})
     };
 
-    println!("{:?}", query_string);
+    // println!("{:?}", query_string);
     //println!("{:?}", new_user);
     //save the user
     match create_new_user(pg_pool, query_string, new_user).await {
