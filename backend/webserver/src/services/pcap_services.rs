@@ -1,10 +1,14 @@
 use std::collections::HashMap;
+use std::fmt::format;
 use actix_multipart::{Field, Multipart};
 use chrono::{Local, NaiveDateTime};
-use futures_util::{StreamExt, TryFutureExt};
+use futures_util::{StreamExt, TryFutureExt, TryStreamExt};
 
 use crate::constants::{
-    pcap_constants::PcapSizes,
+    pcap_constants::{
+        PcapSizes,
+        PCAPNG_BYTES
+    },
     table_names::PCAP_FILES_TABLE,
     tier_constants::{
         PAID, FREE, BUSINESS, ENTERPRISE
@@ -18,15 +22,34 @@ use crate::errors::pcap_upload_errors::PcapError;
 
 use crate::models::packet_data::{
     packet_file::PacketFile,
+    tcp_connection_key::TcpConnectionKey,
+};
+
+use pnet_packet::{
+    ethernet::{
+        EthernetPacket,
+    },
+    ip::IpNextHeaderProtocols,
+    ipv4::{
+        Ipv4Packet
+    },
+    Packet,
+    tcp::{
+        TcpFlags,
+        TcpPacket
+    }
 };
 use std::fs::{File, remove_file};
+use std::hash::Hash;
+use std::io;
 use std::io::Write;
+use actix_web::dev::Payload;
+use pcap_parser::nom::character::complete::tab;
+use pcap_parser::{Block, PcapBlockOwned, PcapCapture, PcapNGCapture, PcapNGReader};
+use pnet_packet::ethernet::EtherTypes;
 use sqlx::PgPool;
 
 use uuid::Uuid;
-
-
-
 
 
 ///create_file creates a new file or throws a Pcap error if there
@@ -75,9 +98,162 @@ pub async  fn create_pcap_record(db_pool: &PgPool,
     Ok(packet_file)
 }
 
+fn detect_pcap_format(buffer: &[u8]) -> &'static str {
+
+    match buffer.get(..4) {
+        Some([0xd4, 0xc3, 0xb2, 0xa1]) => "Legacy PCAP (little-endian)",
+        Some([0xa1, 0xb2, 0xc3, 0xd4]) => "Legacy PCAP (big-endian)",
+        Some([0x0a, 0x0d, 0x0d, 0x0a]) => "PCAPNG",
+        _ => "Unknown format",
+    }
+}
+
+
+
+/// Check for broadcast at Layer 2 and Layer 3
+fn is_broadcast(packet_data: &[u8]) -> (bool, bool) {
+    // Parse Ethernet frame
+    if let Some(ethernet_packet) = EthernetPacket::new(packet_data) {
+        // Layer 2 Broadcast MAC Address
+        let l2_broadcast = ethernet_packet.get_destination().octets() == [0xFF; 6];
+
+        // Check for IPv4 broadcast if it's an IP packet
+        if ethernet_packet.get_ethertype() == EtherTypes::Ipv4 {
+            if let Some(ip_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
+                let dest_ip = ip_packet.get_destination().octets();
+
+                // Layer 3: Limited broadcast (255.255.255.255)
+                let l3_broadcast = dest_ip == [255, 255, 255, 255];
+
+                return (l2_broadcast, l3_broadcast);
+            }
+        }
+
+        return (l2_broadcast, false);
+    }
+
+    // If parsing fails
+    (false, false)
+}
+
+
+fn is_pcapng(buf: &[u8]) -> bool {
+
+    if buf.starts_with(&PCAPNG_BYTES){
+        return true;
+    }
+
+    false
+}
+
+pub fn parse_pcap_from_buffer(buf: &[u8]) -> Result<(), io::Error> {
+
+
+    //receives buffer data and is true for .pcapng and false for .pcap data
+    match is_pcapng(buf) {
+
+        true =>{
+            //convert to pcap file format for pcapng file tyoe
+            let (_rem, mut reader) = PcapNGReader::new(65536, buf)?
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, "error reading data"))?;
+
+            //cycle through form and convert to human readable pcap data using pnet library
+            while let Ok((_offset, block)) = reader.next() {
+
+                if let PcapBlockOwned::NG(inner_block) = block {
+
+                    match inner_block {
+
+                        Block::EnhancedPacket(epb) =>{
+
+                            // convert pcap bytes in to layer 2 (ethernet frame) checking for
+                            //IPv4 adn IPv6 packet data
+                            if let Some(eth) = EthernetPacket::new(epb.data) {
+
+                                if eth.get_ethertype() == EtherTypes::Ipv4 {
+
+                                    if let Some(ipv4) = Ipv4Packet::new(eth.payload()) {
+
+                                        if ipv4.get_next_level_protocol() == IpNextHeaderProtocols::Tcp {
+
+                                        }
+                                    }
+
+                                }else if eth.get_ethertype() == EtherTypes::Ipv6 {
+
+                                }
+
+
+                            }
+                        }
+
+                        Block::SimplePacket(spb) =>{
+                            if let Some(eth) = EthernetPacket::new(spb.data) {
+
+                                if let Some(ipv4) = Ipv4Packet::new(eth.payload()) {
+
+
+                                }
+                            }
+                        }
+
+                        _=> {}
+                    }
+                }
+
+            }
+
+        },
+        false => {
+            let (_, mut capture) = PcapCapture::from_file(buf)?
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, "error reading data"));
+            while let Ok((_offset, block)) = capture.next(){
+
+                if let PcapBlockOwned::Legacy(pkt) = block {
+                    println!("{:#?}", pkt.data);
+                }
+            }
+        }
+    }
+}
+
+/// gather file data from multipart form prior to sending to pcap_parse
+pub async fn pcap_marshall_data(mut payload: Multipart) -> Result<Vec<u8>, PcapError> {
+    let mut buffer: Vec<u8> = Vec::new();
+    const MAX_FILE_SIZE: usize = 50 * 1024 * 1024; // 50 MB = 52,428,800 bytes
+
+    while let Some(mut field) = payload.next().await {
+
+        let mut field = field.map_err(|_|{
+
+            PcapError::IOError
+
+        })?;
+
+        while let Some(chunk) = field.next().await {
+            let chunk = chunk.map_err(|_|{
+
+                PcapError::IOError
+
+            })?;
+
+            //check if the buffer is over the max file size limit
+            if buffer.len() > MAX_FILE_SIZE {
+
+                return Err(PcapError::FileTooLarge);
+            }
+
+            buffer.extend_from_slice(&chunk);
+        }
+    }
+
+    Ok(buffer)
+}
+
+
 
 /// This function is used to determine the size of the pcap allowed based on subscription type
-pub async fn pcap_tier_size(user_tier_string: &str) -> usize {
+pub fn pcap_tier_size(user_tier_string: &str) -> usize {
 
         match user_tier_string {
             PAID       => PcapSizes::max_bytes(&PcapSizes::Free),
@@ -86,6 +262,26 @@ pub async fn pcap_tier_size(user_tier_string: &str) -> usize {
             _          => PcapSizes::max_bytes(&PcapSizes::Free),
         }
 
+}
+
+///upload multipart form "pcap or pcapng" into buffer
+pub async fn upload_in_memory_pcap(mut payload: Multipart) -> Result<Vec<u8>, io::Error> {
+    let mut buffer:Vec<u8> = Vec::new();
+
+    while let Some(mut field) = payload.try_next().await {
+        let mut field = field?;
+
+
+        while let Some(chunk) = field.next().await{
+            buffer.extend_from_slice(&chunk);
+        }
+    }
+
+    if buffer.len() < 4 {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "empty form"));
+    }
+
+    Ok(buffer)
 }
 
 

@@ -21,3 +21,5 @@ impl PcapSizes {
     }
 }
 
+
+pub const PCAPNG_BYTES: [u8; 4] = [0x0A, 0x0D, 0x0D, 0x0A];

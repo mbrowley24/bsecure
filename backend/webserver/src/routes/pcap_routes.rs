@@ -20,6 +20,11 @@ use crate::errors::pcap_upload_errors::PcapError;
 use std::sync::Arc;
 use chrono::Local;
 
+#[post("/pcap/analyze")]
+async fn analyze_pcap(req: HttpRequest, payload: Multipart) -> Result<HttpResponse, PcapError> {
+
+}
+
 /// upload pcap takes in a file from the user to analyze.
 #[post("/pcap/upload")]
 async fn upload_pcap(req: HttpRequest,
