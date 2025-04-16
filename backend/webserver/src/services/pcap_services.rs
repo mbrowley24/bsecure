@@ -154,8 +154,15 @@ pub fn parse_pcap_from_buffer(buf: &[u8]) -> Result<(), io::Error> {
 
         true =>{
             //convert to pcap file format for pcapng file tyoe
-            let (_rem, mut reader) = PcapNGReader::new(65536, buf)?
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, "error reading data"))?;
+            let mut reader = match PcapNGReader::new(65536, buf) {
+                Ok(v) => v,
+                Err(e) =>{
+                    return Err(io::Error::new(io::ErrorKind::Other, format!("error reading data: {:?}", e)))
+                },
+            };
+
+
+
 
             //cycle through form and convert to human readable pcap data using pnet library
             while let Ok((_offset, block)) = reader.next() {
@@ -215,6 +222,8 @@ pub fn parse_pcap_from_buffer(buf: &[u8]) -> Result<(), io::Error> {
             }
         }
     }
+
+    Ok(())
 }
 
 /// gather file data from multipart form prior to sending to pcap_parse
